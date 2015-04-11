@@ -1,0 +1,70 @@
+#include <SD.h>
+#include <Wire.h>
+#include <RTClib.h>
+ 
+RTC_DS1307 RTC;//Inicio de rtc reloj incorporado
+
+//iniciar sd
+String datastring; //Variable asociada a la informacion de la SD
+File lectura;
+boolean yes;//variable encargada de realizar la acción para grabar datos
+
+int veces=0;
+void setup(){
+  Serial.begin(9600); //inicio de la comunicacion serial
+  attachInterrupt(0,dato,FALLING);//pin 2 para int0
+ Wire.begin(4); //Pin 4 para el uso del clock propio de Adafruit
+
+//INICIO DE TARJETA SD
+      
+  Serial.println("Iniciando lectura tarjeta SD");
+ pinMode(10,OUTPUT); //No modificar pin 10 siempre como salida
+
+//NOTA: Se deberia utilizar el pin 4 con CS para la tarjeta Sd pero el modulo Adrafruit
+//funciona correctamente con el pin 10.
+ 
+ if(!SD.begin(10)){
+   Serial.println("Inserte tarjeta SD");//Muestra este mensaje en el monitor serial si no se a iniciado una SD
+   return;//Repite este lazo mientras la tarjeta SD no se encuentre insertada.
+ }
+ Serial.println("Tarjeta OK");//Si existe tarjeta SD desplegar este mensaje
+
+  lectura=SD.open("Colector.txt",FILE_WRITE);//Se creara y abrira un archivo .TXT en el cual se guardara la informacion
+  if(lectura){
+    lectura.println("FECHA       HORA             VECES");
+    lectura.close();
+//NOTA: Siempre despues de escribir en un documento cerrarlo con el comando x.close() para que no existan problemas.    
+    Serial.println(datastring);//Desplegar la informacion en el monitor serial
+    Serial.println("FECHA       HORA             VECES");
+  }
+  else{
+  Serial.println("Cabezara erronea...");//Si existiera un mensaje de escritura se desplegara este mensaje 
+  
+  }
+
+
+ }
+ void loop()
+ {
+   if(yes==true){
+   //ESCRITURA DE DATOS
+  DateTime now = RTC.now();//Instruccion para adquirir el tiempo del rtc
+  datastring=String(now.day())+"/"+String(now.month())+"/"+String(now.year())+"   "+String(now.hour())+":"+String(now.minute())+":"+String(now.second())+"      "+String(veces);
+  lectura=SD.open("Colector.txt",FILE_WRITE);
+  if(lectura){
+    lectura.println(datastring);
+    lectura.close();
+    Serial.println(datastring);
+  }
+  else{
+  Serial.println("Escritura erronea...");
+  } 
+   yes=false;
+   }
+ }
+ 
+ void dato(){
+   yes=true;
+   veces++;
+   delay(800);
+ }

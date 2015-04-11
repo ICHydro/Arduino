@@ -1,0 +1,132 @@
+#include <SDI12.h>//Libreria de comunicacion SDI-12
+#include <SD.h>//Libreria asociada a la tarjeta SD
+#include <Wire.h>//Libreria asociada a la comunicacion I2C
+#include <RTClib.h>//Libreria para el reloj
+
+ 
+RTC_DS1307 RTC;//Inicio de rtc reloj incorporado
+
+//iniciar sd
+String datastring; //Variable asociada a la informacion de la SD
+String buffer=""; //Variable que contendra la informacion de los comandos SDI-12
+File lectura;
+
+
+#define DATAPIN 8         // Cambio de pin para envio de datos en comunicacion SDI-12
+SDI12 mySDI12(DATAPIN); 
+byte addressRegister[8] = { 
+  0B00000000, 
+  0B00000000, 
+  0B00000000, 
+  0B00000000, 
+  0B00000000, 
+  0B00000000, 
+  0B00000000, 
+  0B00000000 
+}; 
+
+char as;
+int w=0;
+int conta=0;
+void setup(){
+  Serial.begin(9600); //inicio de la comunicacion serial
+   mySDI12.begin();//Inicio de la comunicacion SDI-12
+  Wire.begin(4); //Pin 4 para el uso del clock propio de Adafruit
+   delay(500);
+   char i='0';//Definimos i como una variable tipo char para la comunicacion SDI-12
+   as=i;
+   
+ //INICIO DE TARJETA SD
+      
+  Serial.println("Iniciando lectura tarjeta SD");
+ pinMode(10,OUTPUT); //No modificar pin 10 siempre como salida
+
+//NOTA: Se deberia utilizar el pin 4 con CS para la tarjeta Sd pero el modulo Adrafruit
+//funciona correctamente con el pin 10.
+ 
+ if(!SD.begin(10)){
+   Serial.println("Inserte tarjeta SD");//Muestra este mensaje en el monitor serial si no se a iniciado una SD
+   return;//Repite este lazo mientras la tarjeta SD no se encuentre insertada.
+ }
+ Serial.println("Tarjeta OK");//Si existe tarjeta SD desplegar este mensaje
+
+  lectura=SD.open("SDI12.txt",FILE_WRITE);//Se creara y abrira un archivo .TXT en el cual se guardara la informacion
+  if(lectura){
+    lectura.println("FECHA       HORA             sensor/T/H");
+    lectura.close();
+//NOTA: Siempre despues de escribir en un documento cerrarlo con el comando x.close() para que no existan problemas.    
+    Serial.println(datastring);//Desplegar la informacion en el monitor serial
+    Serial.println("FECHA       HORA             sensor/T/H");
+  }
+  else{
+  Serial.println("Cabezara erronea...");//Si existiera un problema en la escritura se desplegara este mensaje 
+  
+  }
+  }
+ 
+ 
+//LAZO PRINCIPAL
+
+void loop(){
+  delay(1000);
+takeMeasurement(w);//Envia a una subrutina para la adquisicion de datos
+mySDI12.flush(); //se libera el buffer
+//ESCRITURA DE DATOS
+  DateTime now = RTC.now();//Instruccion para adquirir el tiempo del rtc
+  datastring=String(now.day())+"/"+String(now.month())+"/"+String(now.year())+"   "+String(now.hour())+":"+String(now.minute())+":"+String(now.second())+"      "+String(buffer);
+  lectura=SD.open("SDI12.txt",FILE_WRITE);
+  if(lectura){
+    lectura.println(datastring);
+    lectura.close();
+    Serial.println(datastring);
+    buffer=""; //limpia el registro de adquisicion de datos
+  }
+  else{
+  Serial.println("Escritura erronea...");
+  } 
+  
+  
+} 
+
+void takeMeasurement(char w){
+  String command = ""; 
+  command += as;//Direccion del sensor que sera almacenada como char en la variable command
+  command += "M!"; // Se envia el comando en formato SDI-12 [address]['M'][!]
+  mySDI12.sendCommand(command); 
+  while(!mySDI12.available()>5); // Esperar el reconocimiento del codigo [address][ttt (3 char, seconds)][number of measurments available, 0-9]
+  delay(100); 
+   mySDI12.read(); //consume address
+  
+   delay(300); 
+  printBufferToScreen(); //Lazo para enviar datos del sensor al Arduino
+  mySDI12.flush(); 
+}
+
+void printBufferToScreen(){
+  mySDI12.flush(); 
+  String command = "";
+  command += as;
+  command += "D0!"; // SDI-12 command to get data [address][D][dataOption][!]
+  mySDI12.sendCommand(command);
+  while(!mySDI12.available()>1); // espera por un reconocimiento de datos  
+  delay(300); 
+  mySDI12.read(); //lee los datos en el buffer
+
+//Lazo que cambia los caracteres muestreados por simbolos tales como "/" y "-"
+  while(mySDI12.available()){
+   char c = mySDI12.read();
+    if(c == '+'){
+      buffer += '/';   
+      if(c == '-') buffer += '-'; 
+    } 
+    else {
+      buffer += c;
+      
+    }
+    delay(6); 
+    
+    }
+    
+   mySDI12.flush(); 
+}
+

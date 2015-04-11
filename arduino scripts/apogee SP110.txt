@@ -1,0 +1,75 @@
+#include <SD.h>
+#include <math.h>
+#include <Wire.h>//Libreria asociada a la comunicacion I2C
+#include <RTClib.h>//Libreria para el reloj sincronizado con el computador
+
+ 
+RTC_DS1307 RTC;//Inicio de rtc reloj incorporado
+
+String datastring;
+File lectura;
+ 
+ 
+int radiacion=A1;       //Pin asignado para medicion de radiacion
+int radiation=0;
+float k;              //
+
+
+void setup() {
+ 
+ Serial.begin(9600);
+  Wire.begin(4); //Pin 4 para el uso del clock propio de Adafruit
+  //Almacenamiento masivo
+   Serial.println("Iniciando lectura tarjeta SD");
+ pinMode(10,OUTPUT); //No modificar pin 10 siempre como salida
+
+//NOTA: Se debería utilizar el pin 4 con CS para la tarjeta Sd pero el módulo Adrafruit
+//Funciona correctamente con el pin 10.
+
+ if(!SD.begin(10)){
+   Serial.println("Inserte tarjeta SD");//Muestra este mensaje en el monitor serial si no se ha iniciado una SD
+   return;//Repite este lazo mientras la tarjeta SD no se encuentre insertada.
+ }
+ Serial.println("Tarjeta OK");//Si existe tarjeta SD desplegar este mensaje
+
+  lectura=SD.open("Rad.txt",FILE_WRITE);
+  if(lectura){
+    lectura.println("FECHA       HORA     RADIACION");
+   //NOTA: Siempre después de escribir en un documento cerrarlo con el comando x.close() para que no existan inconvenientes.    
+    Serial.println(datastring);//Desplegar la información en el monitor serial
+
+    Serial.println("FECHA       HORA     RADIACION");
+  }
+  else{
+  Serial.println("Cabezara erronea...");
+  }
+  
+}
+//LAZO PRINCIPAL
+void loop() {
+  
+float n=0.004887;                 //Resolucion de la conversion A/D (5/1024=0.00489)
+
+  //CALCULOS DE RADIACION PIROMETRO
+   radiation=analogRead(radiacion);//lectura de la medicion del conversor AD
+  int a=radiation;
+  float b=a*n;//El valor de voltaje que se leyo en el PIN A0
+  float radsol=440*b;//Da como resultado el valor de la radiacion n Wm-2
+  int Rd=radsol;
+    
+  //ESCRITURA DE DATOS
+  DateTime now = RTC.now();//Instruccion para adquirir el tiempo del rtc
+  datastring=String(now.day())+"/"+String(now.month())+"/"+String(now.year())+"   "+String(now.hour())+":"+String(now.minute())+":"+String(now.second())+"      "+String(Rd);
+  lectura=SD.open("Rad.txt",FILE_WRITE);
+  if(lectura){
+    lectura.println(datastring);
+    lectura.close();
+    Serial.println(datastring);
+  }
+  else{
+  Serial.println("Escritura erronea...");
+  } 
+  
+  delay(2000);           
+
+}
