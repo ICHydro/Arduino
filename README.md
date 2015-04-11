@@ -1,6 +1,6 @@
 # Arduino
 
-Scripts to program Arduino for environmental modelling developed by the Hydrology Group at Imperial College London.
+Scripts to program Arduino for environmental monitoring developed by the Hydrology Group at Imperial College London.
 
 For more information see:
 
